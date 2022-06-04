@@ -1,22 +1,25 @@
-<?php if (!defined('BASEPATH')) exit('No direct script access allowed');
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
 class Sendyci {
     private $key;
     private $host;
     private $timeout;
     
-    private $listid;
+    private $sendy_list_id;
     
     public function __construct() {
         $this->_check_compatibility();
         
         $CI =& get_instance();
         $CI->load->config('sendyci');
+
+        if ($CI->config->item('sendy_api_key')!==FALSE) $this->key = $CI->config->item('sendy_api_key'); else throw new Exception('Undefined variable SENDY_API_KEY');
+        if (!empty($CI->config->item('sendy_api_key'))) $this->key = $CI->config->item('sendy_api_key'); else throw new Exception('Empty variable SENDY_API_KEY');
+
+        if ($CI->config->item('sendy_host')!==FALSE) $this->host = $CI->config->item('sendy_host'); else throw new Exception('Undefined variable SENDY_HOST');
+        if (!empty($CI->config->item('sendy_host'))) $this->host = $CI->config->item('sendy_host'); else throw new Exception('Empty variable SENDY_HOST');
         
-        if ($CI->config->item('sendy_key')!==FALSE) $this->key = $CI->config->item('sendy_key'); else throw new Exception('Undefined API Key');
-        if ($CI->config->item('sendy_host')!==FALSE) $this->host = $CI->config->item('sendy_host'); else throw new Exception('Undefined Host');
-        
-        $this->timeout = ($CI->config->item('sendy_listid')!==FALSE) ? $CI->config->item('sendy_listid') : '';
+        $this->timeout = ($CI->config->item('sendy_sendy_list_id')!==FALSE) ? $CI->config->item('sendy_sendy_list_id') : '';
         $this->timeout = ($CI->config->item('sendy_timeout')!==FALSE) ? $CI->config->item('sendy_timeout') : 120;
     }
     
@@ -31,7 +34,7 @@ class Sendyci {
 
         //Global options for return
         $return_options = array(
-            'list' => $this->listid,
+            'list' => $this->sendy_list_id,
             'boolean' => 'true'
         );
 
@@ -59,158 +62,43 @@ class Sendyci {
         return $result;
     }
     
-    public function set_list_id($id) {
-        $this->listid = $id;
+    public function set_list_id($id)
+    {
+        $this->sendy_list_id = $id;
     }
     
-    public function get_list_id() {
-        return $this->listid;
+    public function get_list_id()
+    {
+        return $this->sendy_list_id;
     }
-    
-    public function subscribe($name,$email) {
-        $type = 'subscribe';
-        
-        //Post fields
-        $values = array(
-            'name' => $name,
-            'email' => $email
-        );
-        
-        //Send the subscribe
-        $result = strval($this->_curl_execute($type, $values));
 
-        // Convert result
-        $ret = strtolower(strval($result));
-        unset($result);
-        
-        //Handle ret
-        if (strcasecmp($ret, '1')==0) {
-            $response = array(
-                'status' => true,
-                'message' => 'Subscribed.'
-            );
-        } else if (strcasecmp($ret,'already subscribed.')==0) {
-            $response = array(
-                'status' => true,
-                'message' => 'Already subscribed.'
-            );
-        } else {
-            $response = array(
-                'status' => false,
-                'message' => $ret
-            );
-        }
-        
-        return $response;
-    }
-    
-    public function unsubscribe($email) {
-        $type = 'unsubscribe';
+    /**
+     * This method returns the full list of brands (ids and names) that exists in the Sendy installation.
+     *
+     * @return Array
+     **/
+    public function get_brands()
+    {
+        $type = '/api/brands/get-brands.php';
 
-        //Send the unsubscribe
-        $result = strval($this->_curl_execute($type, array('email' => $email)));
-
-        // Convert result
-        $ret = strval($result);
-        unset($result);
-        
-        //Handle ret
-        if (strcmp($ret, '1')==0) {
-            $response = array(
-                'status' => true,
-                'message' => 'Unsubscribed.'
-            );
-        } else {
-            $response = array(
-                'status' => false,
-                'message' => $ret
-            );
-        }
-        
-        return $response;
-    }
-    
-    public function get_status($email) {
-        $type = 'api/subscribers/subscription-status.php';
-
-        //Send the request for status
-        $result = $this->_curl_execute($type, array(
-            'email' => $email,
-            'api_key' => $this->key,
-            'list_id' => $this->listid
-        ));
-        
-        // Convert result
-        $ret = strtolower(strval($result));
-        unset($result);
-
-        //Handle the results
-        if (strcasecmp($ret, 'subscribed')==0) {
-            $response = array(
-                'status' => 1,
-                'message' => $ret
-            );
-        } else if (strcasecmp($ret, 'unsubscribed')==0) {
-            $response = array(
-                'status' => -1,
-                'message' => $ret
-            );
-        } else if (strcasecmp($ret, 'unconfirmed')==0) {
-            $response = array(
-                'status' => -2,
-                'message' => $ret
-            );
-        } else if (strcasecmp($ret, 'bounced')==0) {
-            $response = array(
-                'status' => -3,
-                'message' => $ret
-            );
-        } else if (strcasecmp($ret, 'soft bounced')==0) {
-            $response = array(
-                'status' => -4,
-                'message' => $ret
-            );
-        } else if (strcasecmp($ret, 'complained')==0) {
-            $response = array(
-                'status' => -5,
-                'message' => $ret
-            );
-        } else {
-            $response = array(
-                'status' => 0,
-                'message' => $ret
-            );
-        }
-        
-        return $response;
-    }
-    
-    public function get_list_count($list = "") {
-        $type = 'api/subscribers/active-subscriber-count.php';
-
-        //if a list is passed in use it, otherwise use $this->list_id
-        if (empty($list)) $list = $this->listid;
-
-        //handle exceptions
-        if (empty($list)) throw new Exception("method [subcount] requires parameter [list] or [$this->listid] to be set.", 1);
-
-        //Send request for subcount
+        //Send request for brands
         $result = $this->_curl_execute($type, array(
             'api_key' => $this->key,
-            'list_id' => $list
         ));
 
-        //Handle the results
-        if (is_numeric($result)) {
+        $obj = json_decode($result, true);
+        
+        //Success
+        if (json_last_error() == 0) {
             return array(
-                'status' => true,
-                'message' => $result
+                'status' => 'success',
+                'data' => $obj
             );
         }
 
         //Error
         return array(
-            'status' => false,
+            'status' => 'error',
             'message' => $result
         );
     }

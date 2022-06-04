@@ -102,4 +102,43 @@ class Sendyci {
             'message' => $result
         );
     }
+
+    /**
+     * This method returns all lists (ids and names) from a particular brand.
+     *
+     * @return Array
+     **/
+    public function get_all_lists_brand($brand_id = null)
+    {
+        $type = '/api/lists/get-lists.php';
+
+        if (empty($brand_id)) {
+            return array(
+                'status' => 'error',
+                'message' => "method [get_lists] requires parameter [brand_id] to be set."
+            );
+        }
+
+        //Send request
+        $result = $this->_curl_execute($type, array(
+            'api_key' => $this->key,
+            'brand_id' => $brand_id,
+        ));
+
+        $obj = json_decode($result, true);
+        
+        //Success
+        if (json_last_error() == 0) {
+            return array(
+                'status' => 'success',
+                'data' => $obj
+            );
+        }
+
+        //Error
+        return array(
+            'status' => 'error',
+            'message' => $result
+        );
+    }
 }

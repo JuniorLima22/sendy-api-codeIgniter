@@ -19,7 +19,7 @@ class Sendyci {
         if ($CI->config->item('sendy_host')!==FALSE) $this->host = $CI->config->item('sendy_host'); else throw new Exception('Undefined variable SENDY_HOST');
         if (!empty($CI->config->item('sendy_host'))) $this->host = $CI->config->item('sendy_host'); else throw new Exception('Empty variable SENDY_HOST');
         
-        $this->timeout = ($CI->config->item('sendy_sendy_list_id')!==FALSE) ? $CI->config->item('sendy_sendy_list_id') : '';
+        $this->sendy_list_id = ($CI->config->item('sendy_list_id')!==FALSE) ? $CI->config->item('sendy_list_id') : '';
         $this->timeout = ($CI->config->item('sendy_timeout')!==FALSE) ? $CI->config->item('sendy_timeout') : 120;
     }
     
@@ -115,7 +115,7 @@ class Sendyci {
         if (empty($brand_id)) {
             return array(
                 'status' => 'error',
-                'message' => "method [get_lists] requires parameter [brand_id] to be set."
+                'message' => "method [get_all_lists_brand] requires parameter [brand_id] to be set."
             );
         }
 
@@ -140,5 +140,52 @@ class Sendyci {
             'status' => 'error',
             'message' => $result
         );
+    }
+
+    /**
+     * This method adds a new subscriber to a list. You can also use this method to update an existing subscriber
+     *
+     * @param string $name
+     * @param string $email
+     * @return Array
+     **/
+    public function subscribe($name = '', $email = '') {
+        $type = '/subscribe';
+        
+        //Post fields
+        $values = array(
+            'api_key' => $this->key,
+            'list' => $this->sendy_list_id,
+            'name' => $name,
+            'email' => $email,
+            'boolean' => true
+        );
+
+        //Send the subscribe
+        $result = strval($this->_curl_execute($type, $values));
+
+        // Convert result
+        $ret = strtolower(strval($result));
+        unset($result);
+        
+        //Handle ret
+        if (strcasecmp($ret, '1')==0) {
+            $response = array(
+                'status' => 'success',
+                'message' => 'Subscribed.'
+            );
+        } else if (strcasecmp($ret,'already subscribed.')==0) {
+            $response = array(
+                'status' => 'success',
+                'message' => 'Already subscribed.'
+            );
+        } else {
+            $response = array(
+                'status' => 'error',
+                'message' => $ret
+            );
+        }
+        
+        return $response;
     }
 }
